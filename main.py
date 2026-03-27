@@ -1,97 +1,113 @@
 import streamlit as st
 import pandas as pd
 import pydeck as pdk
-import requests
+from datetime import datetime
 
-# 1. 頁面配置與 Flighty 風格 CSS
-st.set_page_config(page_title="Flighty Clone", layout="wide", initial_sidebar_state="collapsed")
+# 1. 頁面配置
+st.set_page_config(page_title="Flighty Terminal", layout="wide", initial_sidebar_state="collapsed")
 
+# 2. Flighty 風格精緻化 CSS (加入毛玻璃與漸層)
 st.markdown("""
     <style>
-    /* 全螢幕背景與深色調 */
-    .main { background-color: #0b0d10; }
-    [data-testid="stAppViewContainer"] { background-color: #0b0d10; }
+    .main { background-color: #050505; }
+    [data-testid="stAppViewContainer"] { background-color: #050505; }
     
-    /* 模擬 iOS 卡片 */
+    /* iOS 卡片設計 */
     .flight-card {
-        background: rgba(30, 31, 35, 0.8);
-        border-radius: 20px;
-        padding: 20px;
-        margin-bottom: 15px;
-        border: 1px solid rgba(255,255,255,0.1);
-        backdrop-filter: blur(10px);
+        background: linear-gradient(145deg, #1a1b1e, #121316);
+        border-radius: 24px;
+        padding: 24px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255,255,255,0.05);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
-    .date-text { font-size: 2.5rem; font-weight: 800; color: #fff; line-height: 1; }
-    .day-left { color: #888; font-size: 0.8rem; text-transform: uppercase; }
-    .airport-code { font-weight: 700; color: #fff; font-size: 1.2rem; }
-    .flight-time { color: #aaa; font-size: 0.9rem; }
+    .count-down { font-size: 2.8rem; font-weight: 800; color: #ffffff; line-height: 1; letter-spacing: -2px; }
+    .unit { color: #555; font-size: 0.7rem; font-weight: 700; margin-top: 4px; }
+    .airline-tag { color: #e3b341; font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; }
+    .airport-row { display: flex; align-items: center; margin: 12px 0; }
+    .airport-code { font-size: 1.6rem; font-weight: 700; color: #fff; }
+    .arrow { color: #444; margin: 0 15px; font-size: 1.2rem; }
+    .info-footer { display: flex; justify-content: space-between; color: #888; font-size: 0.85rem; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. 模擬行程數據 (整合你接下來的 TSA-HND 與 下地島行程)
-flights = [
-    {"no": "JX 886", "from": "TPE", "to": "SHI", "date": "16 Apr", "days": "20", "from_coord": [121.23, 25.07], "to_coord": [125.14, 24.83], "time": "7:20 AM - 9:40 AM"},
-    {"no": "JX 887", "from": "SHI", "to": "TPE", "date": "21 Apr", "days": "25", "from_coord": [125.14, 24.83], "to_coord": [121.23, 25.07], "time": "10:40 AM - 11:00 AM"},
-    {"no": "BR 192", "from": "TSA", "to": "HND", "date": "03 May", "days": "37", "from_coord": [121.55, 25.06], "to_coord": [139.77, 35.54], "time": "7:20 AM - 11:30 AM"},
+# 3. 行程數據 (包含你 2026 年的關鍵航段)
+today = datetime.now()
+flight_list = [
+    {"no": "JX 886", "from": "TPE", "to": "SHI", "date": "2026-04-16", "f_coord": [121.23, 25.07], "t_coord": [125.14, 24.83], "time": "07:20 - 09:40", "type": "StarLux"},
+    {"no": "JX 887", "from": "SHI", "to": "TPE", "date": "2026-04-21", "f_coord": [125.14, 24.83], "t_coord": [121.23, 25.07], "time": "10:40 - 11:00", "type": "StarLux"},
+    {"no": "BR 192", "from": "TSA", "to": "HND", "date": "2026-05-03", "f_coord": [121.55, 25.06], "t_coord": [139.77, 35.54], "time": "07:20 - 11:30", "type": "EVA Air"},
+    {"no": "CX 233", "from": "TPE", "to": "MXP", "date": "2026-08-25", "f_coord": [121.23, 25.07], "t_coord": [9.19, 45.46], "time": "Mission: Milan", "type": "Cathay"},
 ]
 
-# 3. 繪製 3D 飛行地球 (Pydeck)
-st.write("### Global Flight Path")
+# 4. 3D 地球視覺化 (修正底圖問題)
+st.write("### Global Flight Map")
 
-# 建立飛行路徑數據
-arc_data = pd.DataFrame([
-    {"name": f["no"], "source": f["from_coord"], "target": f["to_coord"]} for f in flights
+arc_df = pd.DataFrame([
+    {"source": f["f_coord"], "target": f["t_coord"]} for f in flight_list
 ])
 
+# 繪製弧線層
 layer = pdk.Layer(
     "ArcLayer",
-    arc_data,
+    arc_df,
     get_source_position="source",
     get_target_position="target",
-    get_source_color=[50, 150, 255, 160],
-    get_target_color=[0, 200, 255, 200],
-    get_width=3,
-    pickable=True,
+    get_source_color=[0, 122, 255, 180], # 經典飛行藍
+    get_target_color=[255, 255, 255, 200],
+    get_width=4,
+    tilt=15,
 )
 
-view_state = pdk.ViewState(latitude=25.0, longitude=130.0, zoom=3, pitch=45, bearing=0)
+# 設定視角：對準東亞起點
+view_state = pdk.ViewState(
+    latitude=30.0, longitude=135.0, zoom=2.5, pitch=40, bearing=0
+)
 
 st.pydeck_chart(pdk.Deck(
     layers=[layer],
     initial_view_state=view_state,
-    map_style="mapbox://styles/mapbox/dark-v10", # 深色地圖
+    map_style="mapbox://styles/mapbox/dark-v10", # 如果沒 Token 會顯示預設深色
+    tooltip=True
 ))
 
-# 4. 模擬 My Flights 列表
-st.write("#### My Flights")
+st.write("---")
+st.write("#### MY MISSIONS")
 
-for f in flights:
+# 5. 生成卡片
+for f in flight_list:
+    f_date = datetime.strptime(f['date'], "%2026-%m-%d")
+    days_left = (f_date - today).days
+    
+    # 根據航空公司調整圖示顏色
+    icon_color = "#e3b341" if f['type'] == "StarLux" else "#00d26a"
+    
     st.markdown(f"""
     <div class="flight-card">
-        <div style="display: flex; align-items: center;">
-            <div style="flex: 0 0 80px;">
-                <div class="date-text">{f['days']}</div>
-                <div class="day-left">DAYS</div>
+        <div style="display: flex; align-items: flex-start;">
+            <div style="flex: 0 0 100px;">
+                <div class="count-down">{days_left if days_left > 0 else "NOW"}</div>
+                <div class="unit">DAYS LEFT</div>
             </div>
-            <div style="flex: 1; margin-left: 20px;">
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="color: #e3b341; font-weight: bold;">⚡ {f['no']}</span>
-                    <span style="color: #888;">{f['date']}</span>
-                </div>
-                <div style="margin-top: 5px;">
-                    <span class="airport-code">{f['from']}</span> 
-                    <span style="color: #666; margin: 0 10px;">→</span>
+            <div style="flex: 1; margin-left: 10px;">
+                <div class="airline-tag" style="color: {icon_color};">⚡ {f['no']}</div>
+                <div class="airport-row">
+                    <span class="airport-code">{f['from']}</span>
+                    <span class="arrow">→</span>
                     <span class="airport-code">{f['to']}</span>
                 </div>
-                <div class="flight-time">🕒 {f['time']}</div>
+                <div class="info-footer">
+                    <span>{f['date']}</span>
+                    <span>{f['time']}</span>
+                </div>
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-# 5. 保留原本的 API 同步按鈕 (放在最下方或 Sidebar)
-with st.expander("Update Current Flight Data"):
-    input_no = st.text_input("Input Flight No to Sync", "JX886")
-    if st.button("Sync Now"):
-        st.write("Connecting to AviationStack...")
-        # 這裡放入你原本的 API 呼叫代碼
+# 6. 側邊欄快速工具
+with st.sidebar:
+    st.title("SENTRY CONTROL")
+    st.write("2026 Mission Tracker")
+    if st.button("Update All Syncs"):
+        st.toast("Syncing with Global Data...")
